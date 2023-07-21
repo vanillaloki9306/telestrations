@@ -1,0 +1,176 @@
+import pygame
+import random
+import numpy as np
+from keras.models import load_model
+
+# Initialize pygame
+pygame.init()
+
+# Set up the game window
+WIDTH = 800  # Increase the width to accommodate the game menu
+HEIGHT = 600
+WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Single Player Telestrations")
+
+# Load the AI model
+AI_MODEL = load_model('keras_model.h5', compile=False)
+
+# Define the game prompts
+PROMPTS = {'airplane': 0.19, 'car': 0.19, 'diamond': 0.19, 'playing cards': 0.19, 'donut': 0.19, 'amogus': 0.05}
+
+# Define function to get random prompt
+def get_prompt():
+    return random.choices(list(PROMPTS.keys()), weights=list(PROMPTS.values()))[0]
+
+# Define function to get AI's guess
+def get_guess(image):
+    # Resize the image to match the input size of the AI model
+    image = pygame.transform.scale(image, (224, 224))
+    # Convert the image to RGB
+    image = pygame.surfarray.array3d(image)
+    # Add an extra dimension to match the input shape of the AI model
+    image = np.expand_dims(image, axis=0)
+    # Get the AI's prediction
+    prediction = AI_MODEL.predict(image)
+    # Get the index of the highest predicted value
+    index = np.argmax(prediction)
+    # Get the confidence score of the prediction
+    confidence = prediction[0][index]
+    # Get the corresponding label for the prediction
+    labels = ['airplane', 'car', 'donut', 'diamond', 'playing cards', 'amogus']
+    guess = labels[index]
+    return guess, confidence
+
+# Define function to draw text on the screen
+def draw_text(text, size, color, x, y, bg_color=None):
+    font = pygame.font.Font(None, size)
+    text_surface = font.render(text, True, color, bg_color)
+    text_rect = text_surface.get_rect()
+    text_rect.topleft = (x, y)
+    WINDOW.blit(text_surface, text_rect)
+
+# Define function to start the game
+def draw_text(text, size, color, x, y, bg_color=None):
+    font = pygame.font.Font(None, size)
+    text_surface = font.render(text, True, color, bg_color)
+    text_rect = text_surface.get_rect()
+    text_rect.topleft = (x, y)
+    WINDOW.blit(text_surface, text_rect)
+
+# Define function to start the game
+def start_game():
+    # Get a random prompt
+    prompt = get_prompt()
+    # Set the time limit in seconds
+    time_limit = 1200
+    # Set up the clock
+    clock = pygame.time.Clock()
+    # Set up the drawing surface
+    drawing_surface = pygame.Surface((WIDTH - 200, HEIGHT-100))  # Adjust the width of the drawing surface
+    drawing_surface.fill((255, 255, 255))
+    # Set up the drawing tool
+    drawing_tool = pygame.draw.aaline  # Use anti-aliased line for smoother drawing
+    # Set up the drawing position
+    drawing_pos = None
+    # Set up the drawing state
+    drawing = False
+    # Set up the game state
+    running = True
+    # Variable to track if the AI's guess has been shown
+    ai_guess_shown = False
+
+    # Get the initial prompt
+    prompt = get_prompt()
+
+    # Main game loop
+    while running:
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                drawing = True
+                drawing_pos = (event.pos[0], event.pos[1] - 100)  # Account for the top position of the drawing surface
+            elif event.type == pygame.MOUSEBUTTONUP:
+                drawing = False
+                drawing_pos = None
+            elif event.type == pygame.MOUSEMOTION:
+                if drawing:
+                    start_pos = drawing_pos
+                    end_pos = (event.pos[0], event.pos[1] - 100)  # Account for the top position of the drawing surface
+                    drawing_tool(drawing_surface, (0, 0, 0), start_pos, end_pos, 5)
+                    drawing_pos = end_pos
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q:
+                    # Get the AI's guess early
+                    guess, confidence = get_guess(drawing_surface)
+                    draw_text(f"AI guess: {guess} ({confidence:.2f})", 24, (0, 0, 0), WIDTH-180, HEIGHT-75, (255, 255, 255))  # Adjust the position
+                elif event.key == pygame.K_e:
+                    # Clear the drawing pad
+                    drawing_surface.fill((255, 255, 255))
+        # Draw the background
+        WINDOW.fill((255, 255, 255))
+        # Draw the game menu on the right side of the window
+        WINDOW.fill((255,255, 255))
+        pygame.draw.rect(WINDOW, (240, 240, 240), pygame.Rect(WIDTH-200, 0, 200, HEIGHT))  # Draw a background for the game menu
+        draw_text(f"Prompt: {prompt}", 24, (0, 0, 0), WIDTH-180, 10)  # Adjust the position of the game menu
+        draw_text(f"Time left: {time_limit//60:02d}:{time_limit%60:02d}", 24, (0, 0, 0), WIDTH-180, HEIGHT-50)  # Adjust the position
+        draw_text("DO NOT HOLD Q to get AI guess", 18, (0, 0, 0), WIDTH-180, HEIGHT-90)  # Display keybind for AI guess
+        draw_text("Press E to clear drawing", 18, (0, 0, 0), WIDTH-180, HEIGHT-70)  # Display keybind for clearing drawing
+        # Draw the drawing surface
+        WINDOW.blit(drawing_surface, (0, 100))  # Blit the drawing surface on the game window
+        # Check if time is up and the AI's guess has not been shown yet
+        if time_limit == 0 and not ai_guess_shown:
+            # Get the AI's guess
+            guess, confidence = get_guess(drawing_surface)
+            # Display the AI's guess and confidence score in the game menu
+            draw_text(f"AI guess: {guess} ({confidence:.2f})", 24, (0, 0, 0), WIDTH-200, HEIGHT-400, (255, 255, 255))  # Adjust the position
+            ai_guess_shown = True  # Mark that the AI's guess has been shown
+        # Update the display
+        pygame.display.update()
+        # Check if time is up and the AI's guess has been shown
+        if time_limit == 0 and ai_guess_shown:
+            # Wait for a few seconds before returning to the start menu
+            pygame.time.wait(5000)
+            running = False
+        # Decrement the time limit
+        time_limit -= 1
+        # Limit the frame rate
+        clock.tick(60)
+
+
+
+def start_menu():
+    # Set up the game state
+    running = True
+    # Load the background image for the start menu and resize it to fit the window size
+    background_image = pygame.image.load("background.jpeg").convert()
+    background_image = pygame.transform.scale(background_image, (WIDTH, HEIGHT))
+    # Main menu loop
+    while running:
+        # Handle events
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    # Start the game
+                    start_game()
+                elif event.key == pygame.K_ESCAPE:
+                    # Quit the game
+                    running = False
+        # Draw the background
+        WINDOW.blit(background_image, (0, 0))
+        draw_text("Single Player Telestrations", 48, (0, 0, 0), WIDTH/4, HEIGHT/4)  # Adjust the position of the start menu
+        draw_text("Press Enter to Play", 24, (0, 0, 0), WIDTH/4, HEIGHT/2)  # Adjust the position of the start menu
+        draw_text("Press Esc to Quit", 24, (0, 0, 0), WIDTH/4, HEIGHT/2 + 50)  # Adjust the position of the start menu
+        draw_text("This is a simplified telestrations singleplayer, where the player draws and the AI guesses.", 18, (255, 255, 255), WIDTH/4, HEIGHT-50)  # Adjust the position of the start menu
+        draw_text("After the game ends, wait 5 seconds before returning to the start menu.", 18, (255, 255, 255), WIDTH/4, HEIGHT-70) #Adjust the position of the start menu
+        # Update the display
+        pygame.display.update()
+
+# Start the game
+start_menu()
+
+# Quit pygame
+pygame.quit()
